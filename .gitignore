@@ -36,5 +36,8 @@
 ehthumbs.db
 Thumbs.db
 
+# annoying vim swapfiles
+*.swp
+
 # The executable
 dwm
