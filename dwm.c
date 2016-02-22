@@ -536,9 +536,24 @@ arrange(Monitor *m)
 void
 arrangemon(Monitor *m)
 {
+	int n = 0;
+	Client *c;
 	strncpy(m->ltsymbol, m->lt[m->sellt]->symbol, sizeof m->ltsymbol);
-	if (m->lt[m->sellt]->arrange)
-		m->lt[m->sellt]->arrange(m);
+	for (n = 0, c = nexttiled(m->clients); c; c = nexttiled(c->next), n++);
+	if (n > 1 || !m->lt[m->sellt]->arrange) {
+		for (c = m->clients; c; c = c->next) {
+			if (ISVISIBLE(c) && (!m->lt[m->sellt]->arrange || !c->isfloating) && (c->bw != borderpx)) {
+				c->oldbw = c->oldbw;
+				c->bw = borderpx;
+				resizeclient(c, m->wx, m->wy, m->ww - (2 * c->bw), m->wh - (2 * c->bw));
+			}
+		}
+		if (m->lt[m->sellt]->arrange) {
+			m->lt[m->sellt]->arrange(m);
+		}
+	} else {
+		monocle(m);
+	}
 }
 
 void
@@ -1410,16 +1425,25 @@ maprequest(XEvent *e)
 void
 monocle(Monitor *m)
 {
-	unsigned int n = 0;
+	unsigned int n = 0, r = 0;
 	Client *c;
 
 	for (c = m->clients; c; c = c->next)
 		if (ISVISIBLE(c))
 			n++;
-	if (n > 0) /* override layout symbol */
+	if (n > 0 && m->lt[m->sellt]->arrange == monocle) /* override layout symbol */
 		snprintf(m->ltsymbol, sizeof m->ltsymbol, "[%d]", n);
-	for (c = nexttiled(m->clients); c; c = nexttiled(c->next))
-		resize(c, m->wx, m->wy, m->ww - 2 * c->bw, m->wh - 2 * c->bw, 0);
+	for(c = nexttiled(m->clients); c; c = nexttiled(c->next)) {
+		if (c->bw) {
+			c->oldbw = c->bw;
+			c->bw = 0;
+			r = 1;
+		}
+		resize(c, m->wx, m->wy, m->ww - (2 * c->bw), m->wh - (2 * c->bw), False);
+		if(r) {
+			resizeclient(c, m->wx, m->wy, m->ww - (2 * c->bw), m->wh - (2 * c->bw));
+		}
+	}
 }
 
 void
@@ -2164,6 +2188,10 @@ togglefloating(const Arg *arg)
         selmon->sel->sfw = selmon->sel->w;
         selmon->sel->sfh = selmon->sel->h;
     }
+	if (selmon->sel->isfloating) {
+		selmon->sel->oldbw = selmon->sel->bw;
+		selmon->sel->bw = borderpx;
+	}
 	arrange(selmon);
 }
 
@@ -2636,7 +2664,8 @@ updatewindowtype(Client *c)
 	Atom state = getatomprop(c, netatom[NetWMState]);
 	Atom wtype = getatomprop(c, netatom[NetWMWindowType]);
 
-	if (state == netatom[NetWMFullscreen])
+	if(state == netatom[NetWMFullscreen] ||
+			(WIDTH(c) >= (c->mon->mx + c->mon->mw) && (HEIGHT(c) >= (c->mon->my + c->mon->mh))))
 		setfullscreen(c, 1);
 	if (wtype == netatom[NetWMWindowTypeDialog])
 		c->isfloating = 1;
