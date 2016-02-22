@@ -327,13 +327,35 @@ combotag(const Arg *arg) {
 void
 comboview(const Arg *arg) {
 	unsigned newtags = arg->ui & TAGMASK;
+    int i;
+    unsigned int tmptag;
+
 	if (combo) {
 		selmon->tagset[selmon->seltags] |= newtags;
 	} else {
 		selmon->seltags ^= 1;	/*toggle tagset*/
 		combo = 1;
-		if (newtags)
-			selmon->tagset[selmon->seltags] = newtags;
+		if (newtags) {
+
+		   selmon->pertag->prevtag = selmon->pertag->curtag;
+		   selmon->tagset[selmon->seltags] = newtags;
+		   if(arg->ui == ~0)
+			   selmon->pertag->curtag = 0;
+		   else {
+			   for (i=0; !(arg->ui & 1 << i); i++) ;
+			   selmon->pertag->curtag = i + 1;
+		   }
+	   } else {
+		   tmptag = selmon->pertag->prevtag;
+		   selmon->pertag->prevtag = selmon->pertag->curtag;
+		   selmon->pertag->curtag = tmptag;
+	   }
+	   selmon->nmaster = selmon->pertag->nmasters[selmon->pertag->curtag];
+	   selmon->mfact = selmon->pertag->mfacts[selmon->pertag->curtag];
+	   selmon->sellt = selmon->pertag->sellts[selmon->pertag->curtag];
+	   selmon->lt[selmon->sellt] = selmon->pertag->ltidxs[selmon->pertag->curtag][selmon->sellt];
+	   selmon->lt[selmon->sellt^1] = selmon->pertag->ltidxs[selmon->pertag->curtag][selmon->sellt^1];
+
 	}
 	focus(NULL);
 	arrange(selmon);
