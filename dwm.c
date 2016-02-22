@@ -410,11 +410,11 @@ attach(Client *c)
 
 void
 attachaside(Client *c) {
-   Client *at = nexttagged(c);
-   if(!at) {
+   if(c->mon->sel == NULL || c->mon->sel->isfloating) {
        attach(c);
        return;
    }
+   Client *at = nexttagged(c->mon->sel);
    c->next = at->next;
    at->next = c;
 }
@@ -1225,7 +1225,7 @@ movemouse(const Arg *arg)
 
 Client *
 nexttagged(Client *c) {
-   Client *walked = c->mon->clients;
+   Client *walked = c;
    for(;
        walked && (walked->isfloating || !ISVISIBLEONTAG(walked, c->tags));
        walked = walked->next
